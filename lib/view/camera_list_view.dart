@@ -55,12 +55,9 @@ class _CameraListPageState extends State<CameraListPage> {
                     subtitle: Text(camera.model),
                     leading: Icon(Icons.videocam),
                     onTap: () {
-                      Navigator.of(context).push(
-                        platformPageRoute(
-                          context: context,
-                          builder: (_) => CameraViewPage(camera: camera),
-                        ),
-                      );
+                      Navigator.of(
+                        context,
+                      ).pushNamed('/camera', arguments: camera);
                     },
                   ),
                 );
