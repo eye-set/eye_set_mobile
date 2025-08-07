@@ -1,83 +1,110 @@
-import 'package:eye_set_mobile/model/camera.dart';
-import 'package:eye_set_mobile/view/camera_view.dart';
+// lib/view/camera_list_page.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_platform_widgets/flutter_platform_widgets.dart';
+import 'package:provider/provider.dart';
+import '../model/camera.dart';
+import '../repository/camera_repository.dart';
 
-class CameraListPage extends StatefulWidget {
+class CameraListPage extends StatelessWidget {
   const CameraListPage({super.key});
 
   @override
-  State<CameraListPage> createState() => _CameraListPageState();
-}
-
-class _CameraListPageState extends State<CameraListPage> {
-  List<Camera> _cameras = [];
-  int _cameraCounter = 1;
-
-  void _addCamera() {
-    setState(() {
-      _cameras.add(
-        Camera(name: 'New Camera $_cameraCounter', model: 'Model X'),
-      );
-      _cameraCounter++;
-    });
-  }
-
-  void _removeCamera(int index) {
-    setState(() {
-      _cameras.removeAt(index);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final repo = Provider.of<CameraRepository>(context, listen: false);
+
     return PlatformScaffold(
-      appBar: PlatformAppBar(title: Text('Camera List')),
-      body: _cameras.isEmpty
-          ? Center(child: Text('No cameras added. Tap + to add one.'))
-          : ListView.builder(
-              itemCount: _cameras.length,
-              itemBuilder: (context, index) {
-                final camera = _cameras[index];
-                return Dismissible(
-                  key: Key('${camera.name}_${camera.model}_$index'),
-                  direction: DismissDirection.endToStart,
-                  onDismissed: (_) => _removeCamera(index),
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Icon(Icons.delete, color: Colors.white),
-                  ),
-                  child: PlatformListTile(
-                    title: Text(camera.name),
-                    subtitle: Text(camera.model),
-                    leading: Icon(Icons.videocam),
-                    onTap: () {
-                      Navigator.of(
-                        context,
-                      ).pushNamed('/camera', arguments: camera);
-                    },
-                  ),
-                );
-              },
-            ),
+      appBar: PlatformAppBar(title: const Text('Camera List')),
+      body: StreamBuilder<List<Camera>>(
+        stream: repo.cameras,
+        builder: (ctx, snapshot) {
+          final cameras = snapshot.data ?? [];
+          if (cameras.isEmpty) {
+            return const Center(
+              child: Text('No cameras added. Tap + to add one.'),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: cameras.length,
+            itemBuilder: (ctx, idx) {
+              final camera = cameras[idx];
+              return Dismissible(
+                key: Key('${camera.name}_${camera.model}_$idx'),
+                direction: DismissDirection.endToStart,
+                onDismissed: (_) => repo.removeCamera(idx),
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                child: PlatformListTile(
+                  title: Text(camera.name),
+                  subtitle: Text(camera.model),
+                  leading: const Icon(Icons.videocam),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed('/camera', arguments: camera),
+                ),
+              );
+            },
+          );
+        },
+      ),
       material: (_, __) => MaterialScaffoldData(
         floatingActionButton: FloatingActionButton(
-          onPressed: _addCamera,
-          child: Icon(Icons.add),
+          child: const Icon(Icons.add),
+          onPressed: () async {
+            final name = await _askForCameraName(context);
+            if (name != null && name.isNotEmpty) {
+              await repo.addCamera(Camera(name: name, model: 'Model X'));
+            }
+          },
         ),
       ),
       cupertino: (_, __) => CupertinoPageScaffoldData(
         navigationBar: CupertinoNavigationBar(
-          middle: Text('Camera List'),
+          middle: const Text('Camera List'),
           trailing: GestureDetector(
-            onTap: _addCamera,
-            child: Icon(CupertinoIcons.add_circled_solid),
+            onTap: () async {
+              final name = await _askForCameraName(context);
+              if (name != null && name.isNotEmpty) {
+                await repo.addCamera(Camera(name: name, model: 'Model X'));
+              }
+            },
+            child: const Icon(CupertinoIcons.add_circled_solid),
           ),
         ),
       ),
     );
   }
+
+  // -------------------------------------------------------------
+  //  Helper that keeps the same “add camera” dialog you
+  //  already wrote.  (No widget tree change!)
+  // -------------------------------------------------------------
+  Future<String?> _askForCameraName(BuildContext context) => showDialog<String>(
+    context: context,
+    builder: (_) {
+      final controller = TextEditingController();
+      return AlertDialog(
+        title: const Text('Add New Camera'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Camera name'),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(context).pop(null),
+          ),
+          ElevatedButton(
+            child: const Text('Add'),
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+          ),
+        ],
+      );
+    },
+  );
 }

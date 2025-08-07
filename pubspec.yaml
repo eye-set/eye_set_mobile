@@ -38,6 +38,7 @@ dependencies:
   bluetooth_low_energy: ^6.0.2
   flutter_platform_widgets: ^9.0.0
   flutter_cache_manager: ^3.4.1
+  provider: ^6.1.5
 
 dev_dependencies:
   flutter_test:
