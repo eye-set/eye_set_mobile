@@ -6,8 +6,31 @@ import 'package:provider/provider.dart';
 import '../model/camera.dart';
 import '../repository/camera_repository.dart';
 
-class CameraListPage extends StatelessWidget {
+class CameraListPage extends StatefulWidget {
   const CameraListPage({super.key});
+
+  @override
+  State<CameraListPage> createState() => _CameraListPageState();
+}
+
+class _CameraListPageState extends State<CameraListPage> {
+  @override
+  void initState() {
+    super.initState();
+
+    // Delay until after build context is available
+    Future.microtask(() {
+      final repo = Provider.of<CameraRepository>(context, listen: false);
+      repo.startAdvertising();
+    });
+  }
+
+  @override
+  void dispose() {
+    final repo = Provider.of<CameraRepository>(context, listen: false);
+    repo.stopAdvertising();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

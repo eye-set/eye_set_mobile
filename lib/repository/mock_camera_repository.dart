@@ -84,4 +84,14 @@ class MockCameraRepository implements CameraRepository {
     final response = await request.close();
     return await consolidateHttpClientResponseBytes(response);
   }
+
+  @override
+  Future<void> startAdvertising() async {
+    // TODO: implement startAdvertising
+  }
+
+  @override
+  Future<void> stopAdvertising() async {
+    // TODO: implement stopAdvertising
+  }
 }

@@ -1,6 +1,8 @@
 // lib/repository/ble_camera_repository.dart
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:bluetooth_low_energy/bluetooth_low_energy.dart';
 import 'package:eye_set_mobile/repository/mock_camera_repository.dart';
 
 import '../model/camera.dart';
@@ -9,6 +11,26 @@ import 'camera_repository.dart';
 /// Stub for a BLE‑backed repository.
 /// Replace the TODOs with calls to your BLE plugin.
 class BleCameraRepository implements CameraRepository {
+  // Meshtastic MeshBluetoothService + characteristics
+  static final UUID meshServiceUuid = UUID.fromString(
+    '6ba1b218-15a8-461f-9fa8-5dcae273eafd',
+  ); // service
+
+  static final UUID toRadioUuid = UUID.fromString(
+    'f75c76d2-129e-4dad-a1dd-7866124401e7',
+  ); // write
+  static final UUID fromRadioUuid = UUID.fromString(
+    '2c55e69e-4993-11ed-b878-0242ac120002',
+  ); // read
+  static final UUID fromNumUuid = UUID.fromString(
+    'ed9da18c-a800-4f66-a670-aa7547e34453',
+  ); // read/notify/write
+  static final UUID logRecordUuid = UUID.fromString(
+    '5a3d6e49-06e6-4423-9944-e9de8cdf9547',
+  ); // notify (optional)
+
+  final PeripheralManager _pm = PeripheralManager();
+
   // ------------------------------------------------------------------
   //  STATE
   // ------------------------------------------------------------------
@@ -21,6 +43,115 @@ class BleCameraRepository implements CameraRepository {
     // start with an empty list.
     _controller.add(_cameras);
   }
+
+  GATTService? _meshService;
+  bool _isAdvertising = false;
+  StreamSubscription? _onReadSub;
+  StreamSubscription? _onWriteSub;
+
+  /// Call when Camera List opens.
+  @override
+  Future<void> startAdvertising() async {
+    if (_isAdvertising) return;
+
+    // Ask for permissions (Android 12+: advertise/connect/scan).
+    await _pm.authorize();
+
+    // Build the service (Meshtastic layout)
+    final toRadio = GATTCharacteristic.mutable(
+      uuid: toRadioUuid,
+      properties: const [GATTCharacteristicProperty.write],
+      permissions: const [GATTCharacteristicPermission.write],
+      descriptors: const [],
+    );
+
+    final fromRadio = GATTCharacteristic.mutable(
+      uuid: fromRadioUuid,
+      properties: const [GATTCharacteristicProperty.read],
+      permissions: const [GATTCharacteristicPermission.read],
+      descriptors: const [],
+    );
+
+    final fromNum = GATTCharacteristic.mutable(
+      uuid: fromNumUuid,
+      properties: const [
+        GATTCharacteristicProperty.read,
+        GATTCharacteristicProperty.notify,
+        GATTCharacteristicProperty.write,
+      ],
+      permissions: const [
+        GATTCharacteristicPermission.read,
+        GATTCharacteristicPermission.write,
+      ],
+      descriptors: const [],
+    );
+
+    final logRecord = GATTCharacteristic.mutable(
+      uuid: logRecordUuid,
+      properties: const [GATTCharacteristicProperty.notify],
+      permissions: const [],
+      descriptors: const [],
+    );
+
+    _meshService = GATTService(
+      uuid: meshServiceUuid,
+      isPrimary: true,
+      includedServices: const [],
+      characteristics: [fromRadio, toRadio, fromNum, logRecord],
+    );
+
+    // Publish the service
+    await _pm.removeAllServices();
+    await _pm.addService(_meshService!);
+
+    // Hook minimal handlers (you can expand these later)
+    _onReadSub = _pm.characteristicReadRequested.listen((evt) async {
+      // Example: reply with an empty buffer for FromRadio when polled.
+      if (evt.characteristic.uuid == fromRadioUuid) {
+        await _pm.respondReadRequestWithValue(evt.request, value: Uint8List(0));
+      } else if (evt.characteristic.uuid == fromNumUuid) {
+        await _pm.respondReadRequestWithValue(
+          evt.request,
+          value: Uint8List.fromList([0]),
+        );
+      } else {
+        await _pm.respondReadRequestWithError(
+          evt.request,
+          error: GATTError.requestNotSupported,
+        );
+      }
+    });
+
+    _onWriteSub = _pm.characteristicWriteRequested.listen((evt) async {
+      // Accept writes to ToRadio / FromNum without processing yet.
+      await _pm.respondWriteRequest(evt.request);
+    });
+
+    // Start advertising (name + service UUID only per platform limits)
+    await _pm.startAdvertising(
+      Advertisement(name: "EyeSet App", serviceUUIDs: [meshServiceUuid]),
+    );
+
+    _isAdvertising = true;
+  }
+
+  /// Call when Camera List closes (or on dispose).
+  @override
+  Future<void> stopAdvertising() async {
+    if (!_isAdvertising) return;
+    await _pm.stopAdvertising();
+    _isAdvertising = false;
+
+    await _onReadSub?.cancel();
+    await _onWriteSub?.cancel();
+    _onReadSub = null;
+    _onWriteSub = null;
+
+    await _pm.removeAllServices();
+    _meshService = null;
+  }
+
+  bool get isAdvertising => _isAdvertising;
 
   // ------------------------------------------------------------------
   //  PUBLIC API

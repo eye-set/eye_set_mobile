@@ -17,4 +17,8 @@ abstract class CameraRepository {
 
   /// Returns the cached / freshly fetched preview image for a camera.
   Future<File> getCameraPreview(Camera camera);
+
+  Future<void> startAdvertising();
+
+  Future<void> stopAdvertising();
 }
