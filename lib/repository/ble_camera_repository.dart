@@ -49,6 +49,14 @@ class BleCameraRepository implements CameraRepository {
   StreamSubscription? _onReadSub;
   StreamSubscription? _onWriteSub;
 
+  Future<void> _ensurePoweredOn() async {
+    if (_pm.state != BluetoothLowEnergyState.poweredOn) {
+      await _pm.stateChanged.firstWhere(
+        (e) => e.state == BluetoothLowEnergyState.poweredOn,
+      );
+    }
+  }
+
   /// Call when Camera List opens.
   @override
   Future<void> startAdvertising() async {
@@ -62,6 +70,8 @@ class BleCameraRepository implements CameraRepository {
         // Authorization is not supported on this platform; continue.
       }
     }
+
+    await _ensurePoweredOn();
 
     // Build the service (Meshtastic layout)
     final toRadio = GATTCharacteristic.mutable(
