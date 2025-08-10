@@ -55,7 +55,13 @@ class BleCameraRepository implements CameraRepository {
     if (_isAdvertising) return;
 
     // Ask for permissions (Android 12+: advertise/connect/scan).
-    await _pm.authorize();
+    if (Platform.isAndroid) {
+      try {
+        await _pm.authorize();
+      } on UnsupportedError {
+        // Authorization is not supported on this platform; continue.
+      }
+    }
 
     // Build the service (Meshtastic layout)
     final toRadio = GATTCharacteristic.mutable(
@@ -129,7 +135,7 @@ class BleCameraRepository implements CameraRepository {
 
     // Start advertising (name + service UUID only per platform limits)
     await _pm.startAdvertising(
-      Advertisement(name: "EyeSet App", serviceUUIDs: [meshServiceUuid]),
+      Advertisement(name: "EyeSet", serviceUUIDs: [meshServiceUuid]),
     );
 
     _isAdvertising = true;
