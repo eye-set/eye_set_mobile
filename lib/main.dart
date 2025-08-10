@@ -10,9 +10,10 @@ import 'package:flutter_platform_widgets/flutter_platform_widgets.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   final CameraRepository repo =
       BleCameraRepository(); // or BleCameraRepository()
-  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(Provider<CameraRepository>.value(value: repo, child: const MyApp()));
 }
 
