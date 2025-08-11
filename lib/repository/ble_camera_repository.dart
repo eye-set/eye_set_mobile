@@ -3,6 +3,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:bluetooth_low_energy/bluetooth_low_energy.dart';
+import 'package:eye_set_mobile/protos/meshtastic/mesh.pb.dart' as mesh;
+import 'package:eye_set_mobile/protos/meshtastic/portnums.pbenum.dart'
+    as portnum;
 import 'package:eye_set_mobile/repository/mock_camera_repository.dart';
 
 import '../model/camera.dart';
@@ -54,6 +57,22 @@ class BleCameraRepository implements CameraRepository {
       await _pm.stateChanged.firstWhere(
         (e) => e.state == BluetoothLowEnergyState.poweredOn,
       );
+    }
+  }
+
+  void _handleToRadioWrite(Uint8List value) {
+    try {
+      final msg = mesh.ToRadio.fromBuffer(value);
+      if (msg.hasPacket() && msg.packet.hasDecoded()) {
+        final decoded = msg.packet.decoded;
+        if (decoded.portnum == portnum.PortNum.NODEINFO_APP) {
+          final nodeInfo = mesh.NodeInfo.fromBuffer(decoded.payload);
+          // For now we simply log the node name and model.
+          print('Connected node: ${nodeInfo.user.longName} ');
+        }
+      }
+    } catch (_) {
+      // Ignore parse errors for now; this will be expanded later.
     }
   }
 
@@ -139,6 +158,10 @@ class BleCameraRepository implements CameraRepository {
     });
 
     _onWriteSub = _pm.characteristicWriteRequested.listen((evt) async {
+      if (evt.characteristic.uuid == toRadioUuid) {
+        final value = evt.request.value;
+        _handleToRadioWrite(value);
+      }
       // Accept writes to ToRadio / FromNum without processing yet.
       await _pm.respondWriteRequest(evt.request);
     });
