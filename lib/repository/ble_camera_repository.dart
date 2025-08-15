@@ -69,6 +69,19 @@ class BleCameraRepository implements CameraRepository {
           final nodeInfo = mesh.NodeInfo.fromBuffer(decoded.payload);
           // For now we simply log the node name and model.
           print('Connected node: ${nodeInfo.user.longName} ');
+          // Build a camera instance from the node information so it appears
+          // in the CameraList view.
+          final camera = Camera(name: nodeInfo.user.longName, model: 'TEST');
+
+          // Avoid adding duplicate cameras.
+          final exists = _cameras.any(
+            (c) => c.name == camera.name && c.model == camera.model,
+          );
+
+          if (!exists) {
+            _cameras.add(camera);
+            _controller.add(List.of(_cameras));
+          }
         }
       }
     } catch (_) {
