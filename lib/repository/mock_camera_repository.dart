@@ -43,7 +43,8 @@ class MockCameraRepository implements CameraRepository {
   Future<File> getCameraPreview(Camera camera) async {
     // In a real implementation you’d request a byte array from the BLE peripheral.
     // For demo purposes we generate a placeholder image *once* and cache it.
-    final cacheKey = 'camera_preview_${camera.name}_${camera.model}';
+    final cacheKey =
+        'camera_preview_${camera.id}_${camera.name}_${camera.model}';
     final cacheManager = DefaultCacheManager();
 
     // 1️⃣  Try the cache first

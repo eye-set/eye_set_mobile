@@ -53,7 +53,7 @@ class _CameraListPageState extends State<CameraListPage> {
             itemBuilder: (ctx, idx) {
               final camera = cameras[idx];
               return Dismissible(
-                key: Key('${camera.name}_${camera.model}_$idx'),
+                key: Key(camera.id),
                 direction: DismissDirection.endToStart,
                 onDismissed: (_) => repo.removeCamera(idx),
                 background: Container(
@@ -81,7 +81,13 @@ class _CameraListPageState extends State<CameraListPage> {
           onPressed: () async {
             final name = await _askForCameraName(context);
             if (name != null && name.isNotEmpty) {
-              await repo.addCamera(Camera(name: name, model: 'Model X'));
+              await repo.addCamera(
+                Camera(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: name,
+                  model: 'Model X',
+                ),
+              );
             }
           },
         ),
@@ -93,7 +99,13 @@ class _CameraListPageState extends State<CameraListPage> {
             onTap: () async {
               final name = await _askForCameraName(context);
               if (name != null && name.isNotEmpty) {
-                await repo.addCamera(Camera(name: name, model: 'Model X'));
+                await repo.addCamera(
+                  Camera(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: name,
+                    model: 'Model X',
+                  ),
+                );
               }
             },
             child: const Icon(CupertinoIcons.add_circled_solid),

@@ -60,7 +60,7 @@ class BleCameraRepository implements CameraRepository {
     }
   }
 
-  void _handleToRadioWrite(Uint8List value) {
+  void _handleToRadioWrite(Uint8List value, Central central) {
     try {
       final msg = mesh.ToRadio.fromBuffer(value);
       if (msg.hasPacket() && msg.packet.hasDecoded()) {
@@ -70,13 +70,15 @@ class BleCameraRepository implements CameraRepository {
           // For now we simply log the node name and model.
           print('Connected node: ${nodeInfo.user.longName} ');
           // Build a camera instance from the node information so it appears
-          // in the CameraList view.
-          final camera = Camera(name: nodeInfo.user.longName, model: 'TEST');
+          // in the CameraList view. Use the central UUID as the unique ID.
+          final camera = Camera(
+            id: central.uuid.toString(),
+            name: nodeInfo.user.longName,
+            model: 'TEST',
+          );
 
           // Avoid adding duplicate cameras.
-          final exists = _cameras.any(
-            (c) => c.name == camera.name && c.model == camera.model,
-          );
+          final exists = _cameras.any((c) => c.id == camera.id);
 
           if (!exists) {
             _cameras.add(camera);
@@ -88,6 +90,7 @@ class BleCameraRepository implements CameraRepository {
       // Ignore parse errors for now; this will be expanded later.
     }
   }
+
 
   /// Call when Camera List opens.
   @override
@@ -173,7 +176,7 @@ class BleCameraRepository implements CameraRepository {
     _onWriteSub = _pm.characteristicWriteRequested.listen((evt) async {
       if (evt.characteristic.uuid == toRadioUuid) {
         final value = evt.request.value;
-        _handleToRadioWrite(value);
+        _handleToRadioWrite(value, evt.central);
       }
       // Accept writes to ToRadio / FromNum without processing yet.
       await _pm.respondWriteRequest(evt.request);
