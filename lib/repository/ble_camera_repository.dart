@@ -51,6 +51,7 @@ class BleCameraRepository implements CameraRepository {
   bool _isAdvertising = false;
   StreamSubscription? _onReadSub;
   StreamSubscription? _onWriteSub;
+  StreamSubscription? _onConnectionSub;
 
   Future<void> _ensurePoweredOn() async {
     if (_pm.state != BluetoothLowEnergyState.poweredOn) {
@@ -71,19 +72,21 @@ class BleCameraRepository implements CameraRepository {
           print('Connected node: ${nodeInfo.user.longName} ');
           // Build a camera instance from the node information so it appears
           // in the CameraList view. Use the central UUID as the unique ID.
+          final cameraId = central.uuid.toString();
           final camera = Camera(
-            id: central.uuid.toString(),
+            id: cameraId,
             name: nodeInfo.user.longName,
             model: 'TEST',
+            status: CameraStatus.bluetooth,
           );
 
-          // Avoid adding duplicate cameras.
-          final exists = _cameras.any((c) => c.id == camera.id);
-
-          if (!exists) {
+          final idx = _cameras.indexWhere((c) => c.id == cameraId);
+          if (idx == -1) {
             _cameras.add(camera);
-            _controller.add(List.of(_cameras));
+          } else {
+            _cameras[idx] = _cameras[idx].copyWith(status: CameraStatus.bluetooth);
           }
+          _controller.add(List.of(_cameras));
         }
       }
     } catch (_) {
@@ -182,6 +185,22 @@ class BleCameraRepository implements CameraRepository {
       await _pm.respondWriteRequest(evt.request);
     });
 
+    try {
+      _onConnectionSub = _pm.connectionStateChanged.listen((evt) {
+        final id = evt.central.uuid.toString();
+        final idx = _cameras.indexWhere((c) => c.id == id);
+        if (idx != -1) {
+          final status = evt.state == ConnectionState.connected
+              ? CameraStatus.bluetooth
+              : CameraStatus.offline;
+          _cameras[idx] = _cameras[idx].copyWith(status: status);
+          _controller.add(List.of(_cameras));
+        }
+      });
+    } on UnsupportedError {
+      // Ignore on platforms that do not support connection state events.
+    }
+
     // Start advertising (name + service UUID only per platform limits)
     await _pm.startAdvertising(
       Advertisement(name: "EyeSet", serviceUUIDs: [meshServiceUuid]),
@@ -199,8 +218,10 @@ class BleCameraRepository implements CameraRepository {
 
     await _onReadSub?.cancel();
     await _onWriteSub?.cancel();
+    await _onConnectionSub?.cancel();
     _onReadSub = null;
     _onWriteSub = null;
+    _onConnectionSub = null;
 
     await _pm.removeAllServices();
     _meshService = null;

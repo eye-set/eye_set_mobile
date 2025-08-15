@@ -13,10 +13,12 @@ class CameraListPage extends StatefulWidget {
   State<CameraListPage> createState() => _CameraListPageState();
 }
 
-class _CameraListPageState extends State<CameraListPage> {
+class _CameraListPageState extends State<CameraListPage>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Delay until after build context is available
     Future.microtask(() {
@@ -27,9 +29,29 @@ class _CameraListPageState extends State<CameraListPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     final repo = Provider.of<CameraRepository>(context, listen: false);
     repo.stopAdvertising();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final repo = Provider.of<CameraRepository>(context, listen: false);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        repo.startAdvertising();
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        repo.stopAdvertising();
+        break;
+      case AppLifecycleState.hidden:
+        // No devices should connect when the app is hidden.
+        repo.stopAdvertising();
+        break;
+    }
   }
 
   @override
@@ -65,7 +87,7 @@ class _CameraListPageState extends State<CameraListPage> {
                 child: PlatformListTile(
                   title: Text(camera.name),
                   subtitle: Text(camera.model),
-                  leading: const Icon(Icons.videocam),
+                  leading: _statusIcon(camera.status),
                   onTap: () => Navigator.of(
                     context,
                   ).pushNamed('/camera', arguments: camera),
@@ -113,6 +135,18 @@ class _CameraListPageState extends State<CameraListPage> {
         ),
       ),
     );
+  }
+
+  Icon _statusIcon(CameraStatus status) {
+    switch (status) {
+      case CameraStatus.bluetooth:
+        return const Icon(Icons.bluetooth);
+      case CameraStatus.wifi:
+        return const Icon(Icons.wifi);
+      case CameraStatus.offline:
+      default:
+        return const Icon(Icons.videocam_off);
+    }
   }
 
   // -------------------------------------------------------------
