@@ -13,45 +13,35 @@ class CameraListPage extends StatefulWidget {
   State<CameraListPage> createState() => _CameraListPageState();
 }
 
-class _CameraListPageState extends State<CameraListPage>
-    with WidgetsBindingObserver {
+class _CameraListPageState extends State<CameraListPage> {
+  late final AppLifecycleListener _lifecycleListener;
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    _lifecycleListener = AppLifecycleListener(
+      onShow: _startAdvertising,
+      onHide: _stopAdvertising,
+    );
 
     // Delay until after build context is available
-    Future.microtask(() {
-      final repo = Provider.of<CameraRepository>(context, listen: false);
-      repo.startAdvertising();
-    });
+    Future.microtask(_startAdvertising);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    final repo = Provider.of<CameraRepository>(context, listen: false);
-    repo.stopAdvertising();
+    _lifecycleListener.dispose();
+    _stopAdvertising();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void _startAdvertising() {
     final repo = Provider.of<CameraRepository>(context, listen: false);
-    switch (state) {
-      case AppLifecycleState.resumed:
-        repo.startAdvertising();
-        break;
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
-        repo.stopAdvertising();
-        break;
-      case AppLifecycleState.hidden:
-        // No devices should connect when the app is hidden.
-        repo.stopAdvertising();
-        break;
-    }
+    repo.startAdvertising();
+  }
+
+  void _stopAdvertising() {
+    final repo = Provider.of<CameraRepository>(context, listen: false);
+    repo.stopAdvertising();
   }
 
   @override
